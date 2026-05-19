@@ -397,7 +397,7 @@ for (let i = 0; i < nodeCount; i++) {
 }
 
 function spawnPacket() {
-  if (packets.length > 8) return;
+  if (packets.length > 25) return;
   const a = Math.floor(Math.random() * nodes.length);
   let b = Math.floor(Math.random() * nodes.length);
   if (a === b) return;
@@ -452,13 +452,16 @@ function drawNetwork() {
     const to = nodes[p.to];
     const x = from.x + (to.x - from.x) * p.t;
     const y = from.y + (to.y - from.y) * p.t;
-    ctx.fillStyle = 'rgba(255, 26, 26, 0.9)';
+    ctx.shadowColor = 'rgba(255, 26, 26, 1)';
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = 'rgba(255, 80, 80, 1)';
     ctx.beginPath();
-    ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
     ctx.fill();
+    ctx.shadowBlur = 0;
   }
 
-  if (Math.random() < 0.03) spawnPacket();
+  if (Math.random() < 0.08) spawnPacket();
   requestAnimationFrame(drawNetwork);
 }
 
