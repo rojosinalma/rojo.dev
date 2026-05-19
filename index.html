@@ -857,7 +857,7 @@ terminalInput.addEventListener('keydown', (e) => {
   }
 });
 
-terminalBody.addEventListener('click', () => { terminalInput.focus(); });
+terminalBody.addEventListener('click', (e) => { if (!e.target.closest('a')) terminalInput.focus(); });
 </script>
 
 </body>
