@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>rojo.dev</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+  :root {
+    /* Site chrome — red theme */
+    --red: #ff1a1a;
+    --red-dim: #cc1111;
+    --red-glow: #ff1a1a80;
+    /* Terminal internals — green */
+    --neon-green: #00ff41;
+    --neon-green-dim: #00cc33;
+    --neon-green-glow: #00ff4180;
+    --neon-cyan: #00f0ff;
+    --neon-yellow: #f0ff00;
+    --bg-black: #0a0a0a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: var(--red) var(--bg-black);
+  }
+
+  body {
+    background: var(--bg-black);
+    color: var(--red);
+    font-family: 'Share Tech Mono', monospace;
+    overflow: hidden;
+    height: 100vh;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.6) 100%);
+    pointer-events: none;
+    z-index: 9998;
+  }
+
+  #networkBg {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+    opacity: 0.15;
+  }
+
+  @keyframes blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* BOOT SEQUENCE */
+  #bootScreen {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: var(--bg-black);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    transition: opacity 0.8s ease, visibility 0.8s ease;
+  }
+
+  #bootScreen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+
+  /* VIDEO INTRO */
+  #videoScreen {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: #000;
+    z-index: 10001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.5s ease, visibility 0.5s ease;
+  }
+
+  #videoScreen.active {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  #videoScreen.fade-out {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  #introVideo {
+    max-width: 100%;
+    max-height: 100%;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  #videoSkip {
+    position: absolute;
+    bottom: 2rem;
+    right: 2rem;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 2px;
+    color: rgba(255,26,26,0.35);
+    background: none;
+    border: 1px solid rgba(255,26,26,0.15);
+    padding: 0.4rem 1rem;
+    cursor: pointer;
+    transition: color 0.3s, border-color 0.3s;
+    z-index: 10002;
+  }
+
+  #videoSkip:hover {
+    color: var(--red);
+    border-color: var(--red);
+  }
+
+  #videoPlayPrompt {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.2rem;
+    letter-spacing: 4px;
+    color: var(--red);
+    text-shadow: 0 0 10px var(--red-glow);
+    cursor: pointer;
+    display: none;
+    z-index: 10003;
+    padding: 1rem 2rem;
+    border: 1px solid rgba(255,26,26,0.3);
+    animation: blink 1.5s ease-in-out infinite;
+  }
+
+  #bootText {
+    font-size: 14px;
+    line-height: 1.8;
+    max-width: 700px;
+    padding: 2rem;
+    text-align: left;
+    white-space: pre-wrap;
+  }
+
+  #bootText .cursor { animation: blink 0.7s infinite; }
+
+  .main-content {
+    position: relative;
+    z-index: 1;
+    opacity: 0;
+    transition: opacity 1s ease;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  .main-content.visible { opacity: 1; }
+
+  /* NAV */
+  .top-bar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 2rem;
+    background: linear-gradient(180deg, rgba(0,0,0,0.95) 0%, transparent 100%);
+    border-bottom: 1px solid rgba(255,26,26,0.1);
+  }
+
+  .top-bar .logo {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: 1.2rem;
+    letter-spacing: 4px;
+    color: var(--red);
+    text-shadow: 0 0 10px var(--red-glow);
+  }
+
+  .top-bar .logo span { color: var(--red-dim); }
+
+  /* HERO */
+  .hero {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 3.5rem 2rem 1rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* INTERACTIVE TERMINAL */
+  .terminal-container {
+    width: 100%;
+    max-width: 900px;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    animation: fadeInUp 1s ease 0.5s both;
+    text-align: left;
+    padding: 0.5rem 0 1rem;
+  }
+
+  .terminal-window {
+    border: 1px solid rgba(255,26,26,0.25);
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    overflow: hidden;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .terminal-titlebar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: rgba(255,26,26,0.03);
+    border-bottom: 1px solid rgba(255,26,26,0.15);
+    font-size: 0.65rem;
+    letter-spacing: 2px;
+    color: rgba(255,26,26,0.4);
+  }
+
+  .terminal-titlebar span { margin-left: 0.5rem; }
+
+  .terminal-body {
+    padding: 0.4rem 1.2rem;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0,255,65,0.3) transparent;
+  }
+
+  .terminal-body::-webkit-scrollbar { width: 4px; }
+  .terminal-body::-webkit-scrollbar-track { background: transparent; }
+  .terminal-body::-webkit-scrollbar-thumb { background: rgba(0,255,65,0.3); }
+
+  .terminal-output {
+    font-size: 0.8rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .terminal-output .out-line { display: block; margin-bottom: 0.1rem; }
+  .terminal-output .cmd-echo { color: var(--neon-green); }
+  .terminal-output .cmd-echo .path { color: var(--neon-cyan); }
+  .terminal-output .cmd-echo .dollar { color: var(--red); }
+  .terminal-output .out-text { color: rgba(0,255,65,0.65); }
+  .terminal-output .out-heading { color: var(--neon-green); font-weight: bold; }
+  .terminal-output .out-accent { color: var(--neon-cyan); }
+  .terminal-output .out-red { color: var(--red); }
+  .terminal-output .out-dim { color: rgba(0,255,65,0.35); }
+  .terminal-output .out-bold { color: var(--neon-green); }
+
+  .terminal-input-line {
+    display: flex;
+    align-items: center;
+    font-size: 0.8rem;
+    margin-top: 0.3rem;
+  }
+
+  .terminal-input-line .path { color: var(--neon-cyan); }
+  .terminal-input-line .dollar { color: var(--red); margin: 0 0.4rem; }
+
+  .terminal-input-line input {
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--neon-green);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    flex: 1;
+    caret-color: var(--neon-green);
+  }
+
+  .terminal-input-line input::placeholder { color: rgba(0,255,65,0.2); }
+
+  /* FOOTER */
+  .footer {
+    flex-shrink: 0;
+    text-align: center;
+    padding: 0.4rem 2rem;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.5rem;
+    letter-spacing: 3px;
+    color: rgba(255,26,26,0.06);
+    border: none;
+    transition: color 0.8s;
+    user-select: none;
+  }
+
+  .footer:hover { color: rgba(255,26,26,0.25); }
+
+  @media (max-width: 768px) {
+    .top-bar { padding: 0.8rem 1rem; }
+    .hero { padding: 3.5rem 1rem 0; }
+    .footer { font-size: 0.45rem; letter-spacing: 2px; padding: 0.3rem 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="networkBg"></canvas>
+
+<div id="bootScreen">
+  <div id="bootText"></div>
+</div>
+
+<div id="videoScreen">
+  <video id="introVideo" preload="auto" playsinline>
+    <source src="intro.webm" type="video/webm">
+  </video>
+  <div id="videoPlayPrompt">CLICK TO PLAY</div>
+  <button id="videoSkip">SKIP [ESC]</button>
+</div>
+
+<div class="main-content" id="mainContent">
+
+  <nav class="top-bar">
+    <div class="logo"><span>></span> ROJO<span>.</span>DEV</div>
+  </nav>
+
+  <section class="hero">
+
+    <div class="terminal-container">
+      <div class="terminal-window">
+        <div class="terminal-titlebar">
+          <span>guest@rojo.dev:~</span>
+        </div>
+        <div class="terminal-body" id="terminalBody">
+          <div class="terminal-output" id="terminalOutput"><span class="out-line out-dim">Last login: <span id="loginDate"></span> from 127.0.0.1
+Type "help" for available commands.</span></div>
+          <div class="terminal-input-line">
+            <span class="path">guest@rojo.dev</span>
+            <span class="dollar">$</span>
+            <input type="text" id="terminalInput" placeholder="type a command..." autocomplete="off" spellcheck="false">
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <span>HACK THE PLANET</span>
+  </footer>
+
+</div>
+
+<script>
+// === NETWORK TOPOLOGY BACKGROUND ===
+const canvas = document.getElementById('networkBg');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const nodes = [];
+const nodeCount = Math.floor((canvas.width * canvas.height) / 18000);
+const connectionDist = 150;
+const packets = [];
+
+for (let i = 0; i < nodeCount; i++) {
+  nodes.push({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    vx: (Math.random() - 0.5) * 0.3,
+    vy: (Math.random() - 0.5) * 0.3,
+    r: Math.random() * 1.5 + 0.5,
+  });
+}
+
+function spawnPacket() {
+  if (packets.length > 8) return;
+  const a = Math.floor(Math.random() * nodes.length);
+  let b = Math.floor(Math.random() * nodes.length);
+  if (a === b) return;
+  const dx = nodes[b].x - nodes[a].x;
+  const dy = nodes[b].y - nodes[a].y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist > connectionDist * 2) return;
+  packets.push({ from: a, to: b, t: 0, speed: 0.008 + Math.random() * 0.012 });
+}
+
+function drawNetwork() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Connections
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      const dx = nodes[j].x - nodes[i].x;
+      const dy = nodes[j].y - nodes[i].y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < connectionDist) {
+        const alpha = (1 - dist / connectionDist) * 0.35;
+        ctx.strokeStyle = `rgba(255, 26, 26, ${alpha})`;
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(nodes[i].x, nodes[i].y);
+        ctx.lineTo(nodes[j].x, nodes[j].y);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Nodes
+  for (const node of nodes) {
+    ctx.fillStyle = 'rgba(255, 26, 26, 0.5)';
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, node.r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Move
+    node.x += node.vx;
+    node.y += node.vy;
+    if (node.x < 0 || node.x > canvas.width) node.vx *= -1;
+    if (node.y < 0 || node.y > canvas.height) node.vy *= -1;
+  }
+
+  // Packets (bright dots traveling along connections)
+  for (let i = packets.length - 1; i >= 0; i--) {
+    const p = packets[i];
+    p.t += p.speed;
+    if (p.t >= 1) { packets.splice(i, 1); continue; }
+    const from = nodes[p.from];
+    const to = nodes[p.to];
+    const x = from.x + (to.x - from.x) * p.t;
+    const y = from.y + (to.y - from.y) * p.t;
+    ctx.fillStyle = 'rgba(255, 26, 26, 0.9)';
+    ctx.beginPath();
+    ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  if (Math.random() < 0.03) spawnPacket();
+  requestAnimationFrame(drawNetwork);
+}
+
+drawNetwork();
+window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
+
+// === BOOT SEQUENCE ===
+const bootLines = [
+  'BIOS v3.31.337 — R1SK SYSTEMS',
+  'Checking memory... 128GB OK',
+  'Detecting drives... /dev/sda1 [ENCRYPTED]',
+  '',
+  'Loading kernel... ████████████████ OK',
+  'Mounting /home/rojo...',
+  'Starting network daemon...',
+  'Connecting to rojo.dev...',
+  '',
+  'ssh guest@rojo.dev -p 31337',
+  'Authenticating... KEY ACCEPTED',
+  '',
+  '  ██████╗  ██████╗      ██╗ ██████╗',
+  '  ██╔══██╗██╔═══██╗     ██║██╔═══██╗',
+  '  ██████╔╝██║   ██║     ██║██║   ██║',
+  '  ██╔══██╗██║   ██║██   ██║██║   ██║',
+  '  ██║  ██║╚██████╔╝╚█████╔╝╚██████╔╝',
+  '  ╚═╝  ╚═╝ ╚═════╝  ╚════╝  ╚═════╝',
+  '',
+  'Welcome back. Type is cheap. Show me the code.',
+  '',
+  '> Initializing rojo.dev ...',
+];
+
+const bootEl = document.getElementById('bootText');
+const bootScreen = document.getElementById('bootScreen');
+const mainContent = document.getElementById('mainContent');
+
+let lineIndex = 0;
+let charIndex = 0;
+
+function typeBoot() {
+  if (lineIndex >= bootLines.length) {
+    setTimeout(playIntroVideo, 300);
+    return;
+  }
+  const line = bootLines[lineIndex];
+  if (line === '') {
+    bootEl.innerHTML += '\n';
+    lineIndex++;
+    setTimeout(typeBoot, 40);
+    return;
+  }
+  if (charIndex <= line.length) {
+    const current = line.substring(0, charIndex);
+    const allPrev = bootLines.slice(0, lineIndex).join('\n') + (lineIndex > 0 ? '\n' : '');
+    bootEl.innerHTML = allPrev + current + '<span class="cursor">█</span>';
+    charIndex++;
+    const speed = line.startsWith('  ██') ? 3 : (Math.random() * 10 + 5);
+    setTimeout(typeBoot, speed);
+  } else {
+    charIndex = 0;
+    lineIndex++;
+    bootEl.innerHTML = bootLines.slice(0, lineIndex).join('\n');
+    const delay = bootLines[lineIndex - 1].startsWith('>') ? 200 : 30;
+    setTimeout(typeBoot, delay);
+  }
+}
+
+// === VIDEO INTRO ===
+const videoScreen = document.getElementById('videoScreen');
+const introVideo = document.getElementById('introVideo');
+const videoSkip = document.getElementById('videoSkip');
+const videoPlayPrompt = document.getElementById('videoPlayPrompt');
+
+function playIntroVideo() {
+  bootScreen.classList.add('hidden');
+  videoScreen.classList.add('active');
+  const playAttempt = introVideo.play();
+  if (playAttempt !== undefined) {
+    playAttempt.catch(() => {
+      // Autoplay blocked — show click-to-play prompt
+      videoPlayPrompt.style.display = 'block';
+    });
+  }
+}
+
+function handlePlayClick() {
+  videoPlayPrompt.style.display = 'none';
+  introVideo.play().catch(() => {
+    // Still blocked — skip to main
+    showMainContent();
+  });
+}
+
+videoPlayPrompt.addEventListener('click', handlePlayClick);
+videoScreen.addEventListener('click', (e) => {
+  if (e.target !== videoSkip && videoPlayPrompt.style.display === 'block') {
+    handlePlayClick();
+  }
+});
+
+function showMainContent() {
+  introVideo.pause();
+  introVideo.muted = true;
+  introVideo.currentTime = 0;
+  introVideo.removeAttribute('src');
+  introVideo.load();
+  videoScreen.classList.remove('active');
+  videoScreen.classList.add('fade-out');
+  mainContent.classList.add('visible');
+  document.getElementById('terminalInput').focus();
+}
+
+introVideo.addEventListener('ended', showMainContent);
+videoSkip.addEventListener('click', showMainContent);
+
+let booted = false;
+function skipBoot() {
+  if (booted) return;
+  booted = true;
+  bootEl.innerHTML = bootLines.join('\n');
+  setTimeout(playIntroVideo, 200);
+}
+
+bootScreen.addEventListener('click', skipBoot);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (!booted) {
+      skipBoot();
+    } else if (videoScreen.classList.contains('active')) {
+      showMainContent();
+    }
+  }
+});
+setTimeout(typeBoot, 500);
+
+// === SET LOGIN DATE ===
+document.getElementById('loginDate').textContent = new Date().toLocaleString('en-US', {
+  weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
+  hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+});
+
+// === INTERACTIVE TERMINAL ===
+const terminalOutput = document.getElementById('terminalOutput');
+const terminalInput = document.getElementById('terminalInput');
+const terminalBody = document.getElementById('terminalBody');
+
+const commandHistory = [];
+let historyIndex = -1;
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+const commands = {
+
+  help: () => [
+    { type: 'heading', text: 'Available commands:' },
+    { type: 'cmd-list', cmd: 'help', desc: 'Show this help message' },
+    { type: 'cmd-list', cmd: 'whoami', desc: 'Who is rojo?' },
+    { type: 'cmd-list', cmd: 'contact', desc: 'How to reach rojo' },
+    { type: 'cmd-list', cmd: 'gpg --export', desc: 'Show public GPG key' },
+    { type: 'cmd-list', cmd: 'uptime', desc: 'How long has rojo been at it?' },
+    { type: 'cmd-list', cmd: 'clear', desc: 'Clear terminal output' },
+  ],
+
+  whoami: () => [
+    { type: 'heading', text: '╔══════════════════════════════════════════════════╗' },
+    { type: 'heading', text: '║              R O J O  //  rojo.dev               ║' },
+    { type: 'heading', text: '╚══════════════════════════════════════════════════╝' },
+    { type: 'label-value', label: 'HANDLE', value: 'rojo' },
+    { type: 'label-value', label: 'ROLE', value: 'Engineering Manager - Platform' },
+    { type: 'label-value', label: 'LOCATION', value: 'Berlin, Germany' },
+    { type: 'label-value', label: 'ORIGIN', value: 'Santiago, Chile' },
+    { type: 'label-value', label: 'EXPERIENCE', value: '20+ years' },
+    { type: 'accent', text: 'DOMAINS:' },
+    { type: 'text', text: '├── Platform Engineering' },
+    { type: 'text', text: '├── DevOps' },
+    { type: 'text', text: '├── Site Reliability Engineering' },
+    { type: 'text', text: '├── Security' },
+    { type: 'text', text: '├── On-Prem & Cloud Architecture' },
+    { type: 'text', text: '└── Software Development' },
+    { type: 'accent', text: 'STACK:' },
+    { type: 'text', text: 'AWS · Kubernetes · Docker · Terraform' },
+    { type: 'text', text: 'Jenkins · GitHub Actions · ArgoCD' },
+    { type: 'text', text: 'Python · Ruby · Go · Bash' },
+    { type: 'accent', text: 'OFF-DUTY:' },
+    { type: 'text', text: 'FPV Drones · Bass Guitar' },
+    { type: 'text', text: 'Homelab Addict · Street Photography' },
+  ],
+
+  contact: () => [
+    { type: 'heading', text: '// OPEN_CHANNEL' },
+    { type: 'dim', text: 'Encrypted transmissions preferred. Cleartext tolerated.' },
+    { type: 'label-value', label: 'GITHUB', value: 'https://github.com/rojo' },
+    { type: 'label-value', label: 'LINKEDIN', value: 'https://linkedin.com/in/rojo' },
+    { type: 'label-value', label: 'EMAIL', value: 'hello@rojo.dev' },
+  ],
+
+  clear: () => 'CLEAR',
+
+  'gpg --export': () => [
+    { type: 'heading', text: '-----BEGIN PGP PUBLIC KEY BLOCK-----' },
+    { type: 'text', text: 'mQINBFzxReQBEAC9kZnyEEoyhmJ0D0aoYjwe2moLx0MsNhPn/zeOLoioR/Btkaa5' },
+    { type: 'text', text: 'KDyj/nkRD48BrJLyeJ0NV8pwk2ajeDcqT8Elq9ImoARr7/Z37GU1EsA5Jv+Nv1sv' },
+    { type: 'text', text: 'a3LhIPwSvrmsnJJWWwojc5TJ78a/vkOPXwGxJJ9iYA82JyreEngUgM5yqdxfTYF0' },
+    { type: 'text', text: 'u3gOfVU9jEUTfKUYTNCV3B3GIDHlt8oPPeEiwWV1bQvP9ug2jv5m/HICATJ6dU6v' },
+    { type: 'text', text: 'DU1ENpZioXn5t+CO5y3R6c2pNzJUhokjlHtaUSp/+ho7Lf6+2jRTaKUp5sDmZGG1' },
+    { type: 'text', text: 't6ouE1Uh7u+WGIbMxeKpB5HzNnAUOW0KpauuMPGvBWyV8ZWtMd+TbEbLfNFCx0JJ' },
+    { type: 'text', text: '5nB6rXJi3Ma+7oOkaOr7ke9DYfgqk+2OdfruFqACgDt0AM9T9wjY5CVLTSeOHcdD' },
+    { type: 'text', text: 'UtYk4aBUqIH1g7psQIIZTkB80WVkfMZU7UePpC6K/hPQzKD2f8dNgteyq1SbOZqO' },
+    { type: 'text', text: 'A8vnLiRU6lMOLc5Ykr4c1jVPVUtIsYsXVFBJswPa6qlQgHdLTbLWpfu6Pf+lwTQx' },
+    { type: 'text', text: 'sFtzIbD4S9i8+rzbLWWfeuF9nGHMLaDh8NwnuwIs3IfYt0uxikC2n4NTIRRlvYLw' },
+    { type: 'text', text: 'VUgVunEntdNY58loGRuQeh1wthNx4N8PmKqCBoLyzk1Z+4rKesQr6aG6CQARAQAB' },
+    { type: 'text', text: 'tDFNci4gUm9qbyAoRm9sbG93IHRoZSByZWQgcmFiYml0LikgPHJvam9Acm9qby5k' },
+    { type: 'text', text: 'ZXY+iQJOBBMBCAA4FiEEz0AV6M8za3+NazJ6t8Uv+1I8560FAlzxReQCGwMFCwkI' },
+    { type: 'text', text: 'BwIGFQoJCAsCBBYCAwECHgECF4AACgkQt8Uv+1I8562wvQ//TWGWHizXdg4MM4Ds' },
+    { type: 'text', text: 'lY8PoqsV28xX1+uqAlIJtrMuoAjTCE06Ak5c+0dEbVjO658wuoUz0MHw4S08OjV1' },
+    { type: 'text', text: 'QOuT4UGfLf/UTTYcYbfRao/55BHmThrnuIzagSlNh/PB4+AAo3pRpQGo2zN7YoS2' },
+    { type: 'text', text: 'i0lUzlF+SvyTtGJOoY+F8+9ceG5MD2NehalUknGSCrYCNr3VVv/HOvxIgD9MW2IN' },
+    { type: 'text', text: 'zNPwk7SOYlbqmuXN1LGsozM6a/bst8RNQ+1U6jCLlhHjhry/y1vw5s37gOxleLS9' },
+    { type: 'text', text: 'py3EIXdxYDPtrW4T76bYU7WM+yp65GVJVFoVPCWhfr+vt8UcYVgHXnDT2Ksf6wlC' },
+    { type: 'text', text: 'JDS/GVB/asrH/j+fAECzhyevL9nR0HzLJ+92NVeSyLTrfoEPD76xP+4UQahxOmi3' },
+    { type: 'text', text: '+jH1iG0bmqawmJ/6mknOfIKkWZuKivjdMO3VpIS/GlxWm0q+klzNCEQzMpejlyVg' },
+    { type: 'text', text: 'VVch21WAqmoM5sW5TKOGQTu3M395XbjcCfIMZ8MYSc+10icxtvCBZUt7Ylu410dk' },
+    { type: 'text', text: '9wiwoyan/SZeQ63y0wozdjey1ghZRRSFbjossqHSuVRu7ojrDsEcTnlkLHia/4BO' },
+    { type: 'text', text: 'JmIZI5fHJ/+w6m6mlGOgL9GSoNSNZ4VMB71sfSDjXqmqD/1OVf/qL4rLUbOjDfKR' },
+    { type: 'text', text: 'QB2B0t1L6b4VUVZXnWr+vX2QeAW5Ag0EXPFF5AEQAM81OpLU5xyfy+1N0sXVXWIQ' },
+    { type: 'text', text: 'GK5kLIVvfSvwVHv4iqABaH87UIF1zRwdoC53MvFgdI7NS9vvZ6ENb/2U5as3NpuW' },
+    { type: 'text', text: '+QcNt1CgXkH1wF9rXrUIFxi64j0ZIyBmJzeacRbWqc5yg5Cpzlynr1h9ykH+ojws' },
+    { type: 'text', text: 'W+uU631H66//clqXZJSiOiHLd747VSgZmudx8uDCWWIdzEti+VGlHAtLOk8BHvcv' },
+    { type: 'text', text: 'hgmEpDQ5F3wkGMXWAyUoF7v6P81vHndhAJM/OXnHrP262DmyrzN57sWjxeMcrnB4' },
+    { type: 'text', text: 'LYo8QawcgZs8nD5SF4i2/xJ7/lmDtbw7+AhqIfHZwyCOAidMWCzplnRwE1cAoPT3' },
+    { type: 'text', text: 'kP9U4VQeNEpTXAfhAyLBzijKwpW5RoWCbXrn8TUkj/P+DJc+msk+CUTW8JPnDCGc' },
+    { type: 'text', text: 'rMmHjmEl95w9pMMN4zmfDnhBfLsNiTVJL0Wi+p7muxQcrUqK5/k/XfWVXkxmLb/m' },
+    { type: 'text', text: 'XVHo7Rb3EBSA6X0DDbCIfr8NC8QahbDWMrHTJTeeOKU92mDdg2RMR6TIYl++8gKR' },
+    { type: 'text', text: '4TeH/I+4R6ocGQwDKhDyw6DCd/8PWbGyRaA4UDufL1611H5Q3alIuJjKw6YU9f61' },
+    { type: 'text', text: 'P7kzrN1NonWZ72Q+/I6TlWus+39wfIsqz4/Hs2j2/C6IJ5+4OcenaZZzVJZ48RWD' },
+    { type: 'text', text: 'lhFVSDbSPT3LL535A3IrABEBAAGJAjYEGAEIACAWIQTPQBXozzNrf41rMnq3xS/7' },
+    { type: 'text', text: 'UjznrQUCXPFF5AIbDAAKCRC3xS/7UjznrQqdD/9xwuPBG1dzH+K4+E4iYAtzWraK' },
+    { type: 'text', text: 'ySNMFQH02g4EBxr81mBuPCCmvMtnzXFKZaWIY6w68CqNNB7q6Hp5QWWQYkSaxbRU' },
+    { type: 'text', text: 'ryKYaSUJLVlQ2rqwahmSsPnl96tvNzZmo0DQus5sWdiIy/GwJFKP8A/jEhls7DxJ' },
+    { type: 'text', text: 'KOzYw4S3qE8yNJYM/yOGWRjSMX8NuHJp+Duc/uRZbTz4kt1KH2lS9U/kHaGKJ2xs' },
+    { type: 'text', text: '5IMdWWCI3dAq3NP7qGmxZ79IGmJdzwktge1wGCGa4LuCv7DMS20YdkDG1IjDF9Hw' },
+    { type: 'text', text: 'QSG4NUPnnk47ZJfnC+RZyxepjxbjJNf1qbjPnBB7SZ7BXqMrZIbyvHpmAa6hhDU2' },
+    { type: 'text', text: '81+AsBx1PbYiU364GRZdvtZC7gSO8HJfk2UE0aVFUViivgxPR6NhnuiIT1XOjsvG' },
+    { type: 'text', text: '54/Lntm6uGJ7BMIrqE9RClmz5WAXmKNAZBmgBq21mOtQSEfuZo387dEXXW8ePW/K' },
+    { type: 'text', text: 'oxnAtaNH/CETE//Wze8i3tEZzy5d5eDVh7H53iv2OSM3ruc7bxdj19kQhvGYxaDV' },
+    { type: 'text', text: 'xAURj9BGLIheXVf8POxoRlHlNtHlqDpo5jrtY2Imyeqk/rL3uJC5FUSeAD3OTQJI' },
+    { type: 'text', text: '71Sk5aWJEEdRWtrvpncHav/NfAAsIg0Sw4+6u6FZz3E7s0cMbtmIsL7Dg6adquBu' },
+    { type: 'text', text: 'zSb4LkTrMeSanGEIkA==' },
+    { type: 'text', text: '=wjEr' },
+    { type: 'heading', text: '-----END PGP PUBLIC KEY BLOCK-----' },
+  ],
+
+  uptime: () => {
+    const start = new Date(1986, 2, 18);
+    const now = new Date();
+    const days = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+    return [
+      { type: 'text', text: `up ${days} days, 1 user, load average: 1.337, 0.42, 0.69` },
+    ];
+  },
+};
+
+// Aliases
+commands['gpg --export --armor'] = commands['gpg --export'];
+
+function renderOutput(lines) {
+  let html = '';
+  for (const line of lines) {
+    switch (line.type) {
+      case 'heading':
+        html += `<span class="out-line out-heading">${escapeHtml(line.text)}</span>`; break;
+      case 'text':
+        html += `<span class="out-line out-text">${escapeHtml(line.text) || '&nbsp;'}</span>`; break;
+      case 'accent':
+        html += `<span class="out-line out-accent">${escapeHtml(line.text)}</span>`; break;
+      case 'red':
+        html += `<span class="out-line out-red">${escapeHtml(line.text)}</span>`; break;
+      case 'dim':
+        html += `<span class="out-line out-dim">${escapeHtml(line.text)}</span>`; break;
+      case 'bold':
+        html += `<span class="out-line out-bold">${escapeHtml(line.text)}</span>`; break;
+      case 'label-value': {
+        const l = escapeHtml(line.label.padEnd(12));
+        const v = escapeHtml(line.value);
+        html += `<span class="out-line"><span class="out-accent">${l}</span> <span class="out-text">${v}</span></span>`; break;
+      }
+      case 'cmd-list': {
+        const c = escapeHtml(line.cmd.padEnd(16));
+        const d = escapeHtml(line.desc);
+        html += `<span class="out-line">  <span class="out-bold">${c}</span> <span class="out-dim">${d}</span></span>`; break;
+      }
+    }
+  }
+  return html;
+}
+
+function executeCommand(input) {
+  const raw = input.trim();
+  const cmd = raw.toLowerCase();
+
+  const echoHtml = `<span class="out-line cmd-echo"><span class="path">guest@rojo.dev</span> <span class="dollar">$</span> ${escapeHtml(raw)}</span>`;
+  terminalOutput.innerHTML += echoHtml;
+
+  if (!raw) {
+    scrollTerminal();
+    return;
+  }
+
+  commandHistory.push(raw);
+  historyIndex = commandHistory.length;
+
+  const handler = commands[cmd];
+
+  if (handler) {
+    const result = handler();
+    if (result === 'CLEAR') {
+      terminalOutput.innerHTML = '';
+      scrollTerminal();
+      return;
+    }
+    terminalOutput.innerHTML += renderOutput(result);
+  } else {
+    terminalOutput.innerHTML += `<span class="out-line out-red">rojo.dev: command not found: ${escapeHtml(raw)}</span>`;
+    terminalOutput.innerHTML += `<span class="out-line out-dim">Type "help" for available commands.</span>`;
+  }
+
+  scrollTerminal();
+}
+
+function scrollTerminal() {
+  terminalBody.scrollTop = terminalBody.scrollHeight;
+}
+
+// Tab completion
+const commandNames = Object.keys(commands);
+
+terminalInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const partial = terminalInput.value.toLowerCase();
+    if (!partial) return;
+    const matches = commandNames.filter(c => c.startsWith(partial));
+    if (matches.length === 1) {
+      terminalInput.value = matches[0];
+    } else if (matches.length > 1) {
+      // Find longest common prefix
+      let prefix = matches[0];
+      for (let i = 1; i < matches.length; i++) {
+        while (!matches[i].startsWith(prefix)) {
+          prefix = prefix.slice(0, -1);
+        }
+      }
+      if (prefix.length > partial.length) {
+        terminalInput.value = prefix;
+      } else {
+        // Show all matches inline
+        const echoHtml = `<span class="out-line cmd-echo"><span class="path">guest@rojo.dev</span> <span class="dollar">$</span> ${escapeHtml(terminalInput.value)}</span>`;
+        terminalOutput.innerHTML += echoHtml;
+        terminalOutput.innerHTML += `<span class="out-line out-dim">${matches.join('  ')}</span>`;
+        scrollTerminal();
+      }
+    }
+  } else if (e.key === 'Enter') {
+    const val = terminalInput.value;
+    terminalInput.value = '';
+    executeCommand(val);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (historyIndex > 0) {
+      historyIndex--;
+      terminalInput.value = commandHistory[historyIndex];
+    }
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (historyIndex < commandHistory.length - 1) {
+      historyIndex++;
+      terminalInput.value = commandHistory[historyIndex];
+    } else {
+      historyIndex = commandHistory.length;
+      terminalInput.value = '';
+    }
+  } else if (e.key === 'l' && e.ctrlKey) {
+    e.preventDefault();
+    executeCommand('clear');
+  }
+});
+
+terminalBody.addEventListener('click', () => { terminalInput.focus(); });
+</script>
+
+</body>
+</html>
