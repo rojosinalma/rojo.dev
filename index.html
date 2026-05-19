@@ -382,7 +382,7 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 const nodes = [];
-const nodeCount = Math.floor((canvas.width * canvas.height) / 18000);
+const nodeCount = Math.floor((canvas.width * canvas.height) / 6000);
 const connectionDist = 150;
 const packets = [];
 
@@ -397,7 +397,7 @@ for (let i = 0; i < nodeCount; i++) {
 }
 
 function spawnPacket() {
-  if (packets.length > 25) return;
+  if (packets.length > 60) return;
   const a = Math.floor(Math.random() * nodes.length);
   let b = Math.floor(Math.random() * nodes.length);
   if (a === b) return;
