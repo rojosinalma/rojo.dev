@@ -277,6 +277,8 @@
   .terminal-output .out-red { color: var(--red); }
   .terminal-output .out-dim { color: rgba(0,255,65,0.35); }
   .terminal-output .out-bold { color: var(--neon-green); }
+  .terminal-output a.out-link { color: var(--neon-cyan); text-decoration: none; }
+  .terminal-output a.out-link:hover { text-decoration: underline; }
 
   .terminal-input-line {
     display: flex;
@@ -743,7 +745,15 @@ function renderOutput(lines) {
         html += `<span class="out-line out-bold">${escapeHtml(line.text)}</span>`; break;
       case 'label-value': {
         const l = escapeHtml(line.label.padEnd(12));
-        const v = escapeHtml(line.value);
+        const raw = line.value;
+        let v;
+        if (/^https?:\/\//i.test(raw)) {
+          v = `<a class="out-link" href="${escapeHtml(raw)}" target="_blank" rel="noopener noreferrer">${escapeHtml(raw)}</a>`;
+        } else if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) {
+          v = `<a class="out-link" href="mailto:${escapeHtml(raw)}">${escapeHtml(raw)}</a>`;
+        } else {
+          v = escapeHtml(raw);
+        }
         html += `<span class="out-line"><span class="out-accent">${l}</span> <span class="out-text">${v}</span></span>`; break;
       }
       case 'cmd-list': {
