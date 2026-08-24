@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>rojo.dev</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
 
@@ -75,8 +76,6 @@
   }
 
   #bootScreen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
-
-  /* VIDEO INTRO */
 
   #bootText {
     font-size: 14px;
@@ -173,7 +172,7 @@
     color: rgba(255,26,26,0.4);
   }
 
-  .terminal-titlebar span { margin-left: 0.5rem; }
+  .terminal-titlebar span { margin-left: 0.5rem; color: rgba(255,26,26,0.7); }
 
   .terminal-body {
     padding: 0.4rem 1.2rem;
@@ -245,7 +244,7 @@
     user-select: none;
   }
 
-  .footer:hover { color: rgba(255,26,26,0.25); }
+  .footer:hover { color: var(--red); text-shadow: 0 0 8px var(--red-glow); }
 
   @media (max-width: 768px) {
     .top-bar { padding: 0.8rem 1rem; }
@@ -262,7 +261,6 @@
   <div id="bootText"></div>
 </div>
 
-
 <div class="main-content" id="mainContent">
 
   <nav class="top-bar">
@@ -277,7 +275,7 @@
           <span>guest@rojo.dev:~</span>
         </div>
         <div class="terminal-body" id="terminalBody">
-          <div class="terminal-output" id="terminalOutput"><span class="out-line out-dim">Last login: <span id="loginDate"></span> from 127.0.0.1
+          <div class="terminal-output" id="terminalOutput"><span class="out-line out-bold">Last login: <span id="loginDate"></span> from 127.0.0.1
 Type "help" for available commands.</span></div>
           <div class="terminal-input-line">
             <span class="path">guest@rojo.dev</span>
@@ -391,6 +389,8 @@ window.addEventListener('resize', () => { canvas.width = window.innerWidth; canv
 
 // === BOOT SEQUENCE ===
 const bootLines = [
+  'PRESS [ESC] OR CLICK TO SKIP',
+  '',
   'BIOS v3.31.337 — R1SK SYSTEMS',
   'Checking memory... 128GB OK',
   'Detecting drives... /dev/sda1 [ENCRYPTED]',
@@ -423,7 +423,9 @@ let lineIndex = 0;
 let charIndex = 0;
 
 function typeBoot() {
+  if (booted) return;
   if (lineIndex >= bootLines.length) {
+    booted = true;
     setTimeout(showMainContent, 300);
     return;
   }
@@ -460,8 +462,7 @@ let booted = false;
 function skipBoot() {
   if (booted) return;
   booted = true;
-  bootEl.innerHTML = bootLines.join('\n');
-  setTimeout(showMainContent, 200);
+  showMainContent();
 }
 
 bootScreen.addEventListener('click', skipBoot);
@@ -619,9 +620,10 @@ const commands = {
   uptime: () => {
     const start = new Date(1986, 2, 18);
     const now = new Date();
-    const days = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+    const seconds = Math.floor((now - start) / 1000);
+    const days = Math.floor(seconds / 86400);
     return [
-      { type: 'text', text: `up ${days} days, 1 user, load average: 1.337, 0.42, 0.69` },
+      { type: 'text', text: `up ${days} days (${seconds}s), 1 user, load average: 1.337, 0.42, 0.69` },
     ];
   },
 };
@@ -704,6 +706,9 @@ function executeCommand(input) {
 function scrollTerminal() {
   terminalBody.scrollTop = terminalBody.scrollHeight;
 }
+
+// MOTD: list available commands up front
+terminalOutput.innerHTML += renderOutput(commands.help());
 
 // Tab completion
 const commandNames = Object.keys(commands);
